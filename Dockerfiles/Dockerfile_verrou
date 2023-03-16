@@ -1,0 +1,49 @@
+FROM python:3.8
+
+RUN apt-get update && apt-get install -y vim && apt-get install ltrace && apt-get install -y libc6-dbg && apt install -y texlive texlive-latex-extra texlive-fonts-recommended dvipng && apt-get install -y cm-super
+
+RUN wget http://github.com/bbuchfink/diamond/releases/download/v2.0.2/diamond-linux64.tar.gz && tar xzf diamond-linux64.tar.gz && mv diamond /usr/bin/diamond
+
+RUN pip install pip --upgrade
+RUN pip install Click==7.1.2
+RUN pip install matplotlib==3.3.2
+RUN pip install numpy==1.18.5
+RUN pip install pandas==1.1.2
+RUN pip install requests==2.24.0
+RUN pip install sklearn==0.0
+RUN pip install wget==3.2
+RUN pip install tensorflow-gpu==2.3.1
+
+RUN cd /home && git clone --branch=VALGRIND_3_19_0 --single-branch git://sourceware.org/git/valgrind.git valgrind-3.19.0+verrou-dev
+
+RUN cd /home/valgrind-3.19.0+verrou-dev && git clone --branch=vprec-backend --single-branch https://github.com/yohanchatelain/verrou.git verrou && patch -p1 <verrou/valgrind.diff
+
+RUN cd /home/valgrind-3.19.0+verrou-dev && mkdir build && ./autogen.sh && ./configure --enable-only64bit --enable-verrou-fma --prefix=/home/valgrind-3.19.0+verrou-dev/build && make && make install
+#SHELL ["/bin/bash", "-c"] 
+#RUN source /home/valgrind-3.19.0+verrou-dev/build/env.sh
+#SHELL ["/bin/sh", "-c"] 
+
+ENV PATH=/home/valgrind-3.19.0+verrou-dev/build/bin:${PATH}
+#ENV PYTHONPATH=$(prefix=/home/valgrind-3.19.0+verrou-dev/build; 
+ENV PYTHON_PREFIX=/home/valgrind-3.19.0+verrou-dev/build
+ENV PYTHONPATH=/home/valgrind-3.19.0+verrou-dev/build/lib/python3.8/site-packages:${PYTHONPATH}
+ENV MANPATH=/home/valgrind-3.19.0+verrou-dev/build/share/man:${MANPATH}
+ENV CPATH=/home/valgrind-3.19.0+verrou-dev/build/include:${CPATH}
+ENV VERROU_COMPILED_WITH_FMA=yes
+ENV VERROU_COMPILED_WITH_QUAD=yes
+
+
+#RUN cd /home/valgrind-3.19.0+verrou-dev && make check && perl tests/vg_regtest --all 
+#RUN cd /home/valgrind-3.19.0+verrou-dev && make -C tests check && make -C verrou check && perl tests/vg_regtest verrou 
+
+#RUN apt update && apt install -y texlive texlive-latex-extra texlive-fonts-recommended dvipng
+#RUN apt-get install -y cm-super
+
+RUN cd /home/valgrind-3.19.0+verrou-dev && make -C verrou/unitTest 
+
+ADD deepgoplus /deepgoplus
+ADD data-1.0.6 /workdir/data-1.0.6
+RUN mkdir /workdir/results #&& mkdir /workdir/metrics && mkdir /workdir/scripts
+
+# Set bash shell as entrypoint
+ENTRYPOINT [ "/bin/bash"]

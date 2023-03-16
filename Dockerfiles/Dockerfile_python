@@ -1,0 +1,86 @@
+ARG VERIFICARLO_VERSION=v0.8.0
+FROM verificarlo/verificarlo:${VERIFICARLO_VERSION}
+
+# Remove any existing python packages
+RUN mkdir -p /opt/ && touch /opt/vfc-backends.txt
+ENV VFC_BACKENDS_FROM_FILE=/opt/vfc-backends.txt
+RUN echo "libinterflop_ieee.so" > $VFC_BACKENDS_FROM_FILE
+
+# Setup build dependencies
+RUN apt-get update -qqq &&\
+    apt-get install -y --no-install-recommends -qqq \
+    make build-essential libssl-dev zlib1g-dev \
+    libbz2-dev libreadline-dev libsqlite3-dev wget \
+    curl llvm libncurses5-dev  libncursesw5-dev \
+    xz-utils tk-dev wget fort77 gfortran cmake lzma-dev liblzma-dev &&\
+    rm -rf /var/lib/apt/lists/ &&\
+    mkdir -p /opt/build/
+
+# Copy verificarlo's exclusion file for Python 3
+COPY docker/python-vfc-exclude.txt /tmp/python-vfc-exclude.txt
+COPY docker/verificarlo.patch /tmp/verificarlo.patch
+RUN patch $(which verificarlo) /tmp/verificarlo.patch
+
+RUN apt -y -qqq remove python3
+
+# Setting compilers and linkers to use verificarlo
+ENV CC "verificarlo-c"
+ENV CXX "verificarlo-c++"
+ENV FC "verificarlo-f"
+ENV LDSHARED "verificarlo-c"
+
+## Build Python 3.8.5 from source and the associated pip
+## RUN cd /opt/build/ && \
+#    wget https://www.python.org/ftp/python/3.8.5/Python-3.8.5.tgz && \
+#    tar xvf Python-3.8.5.tgz && \
+#    cd Python-3.8.5 && \
+#    CFLAGS="--conservative --exclude-file=/tmp/python-vfc-exclude.txt" ./configure --with-ensurepip=install &&\
+#    make -j &&\
+#    make install &&\ 
+#    wget https://bootstrap.pypa.io/get-pip.py &&\
+#    python3 get-pip.py
+    
+## Build Python 3.8.5 from source and the associated pip
+RUN cd /opt/build/ && \
+    wget https://www.python.org/ftp/python/3.8.5/Python-3.8.5.tgz && \
+    tar xvf Python-3.8.5.tgz && \
+    cd Python-3.8.5 && \
+    LDFLAGS="--conservative --exclude-file=/tmp/python-vfc-exclude.txt" \
+    CFLAGS="--conservative --exclude-file=/tmp/python-vfc-exclude.txt" \
+    LDSHARED='verificarlo-c -shared' \
+    ./configure --with-ensurepip=install &&\
+    make -j &&\
+    make install &&\ 
+    wget https://bootstrap.pypa.io/get-pip.py &&\
+    python3 get-pip.py
+
+# Remove temporary files
+RUN rm -rf /opt/build/*
+
+RUN wget http://github.com/bbuchfink/diamond/releases/download/v2.0.2/diamond-linux64.tar.gz && tar xzf diamond-linux64.tar.gz && mv diamond /usr/bin/diamond
+
+RUN pip install pip --upgrade
+RUN pip install Click==7.1.2
+RUN pip install matplotlib==3.3.2
+RUN pip install numpy==1.18.5
+RUN pip install pandas==1.1.2
+RUN pip install requests==2.24.0
+RUN pip install sklearn==0.0
+RUN pip install wget==3.2
+RUN pip install tensorflow-gpu==2.3.1
+
+
+ADD deepgoplus /deepgoplus
+ADD data-1.0.6 /workdir/data-1.0.6
+RUN mkdir /workdir/results #&& mkdir /workdir/metrics && mkdir /workdir/scripts
+
+
+RUN apt-get update && apt-get install -y vim
+
+# Restore default MCA mode
+RUN echo "libinterflop_mca.so -m rr" > $VFC_BACKENDS_FROM_FILE
+
+
+# Set entrypoint
+ENTRYPOINT [ "/bin/bash"]
+
