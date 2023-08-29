@@ -2,7 +2,7 @@
 
 * The perturbed results aren't provided, but the original data and pre-trained model can be found at can be found at ```http://deepgoplus.bio2vec.net/data``` labelled as version 1.0.6.
 * The original DeepGOPlus GitHub repository is located [here](https://github.com/bio-ontology-research-group/deepgoplus).
-* The built docker image for Verrou can be pulled using ```docker pull inesgp/verrou_vprec```
+* The built DeepGOPlus docker image for Verrou and IEEE can be pulled using ```docker pull inesgp/deepgoplus_verrou_vprec``` and ```docker pull inesgp/deepgoplus_ieee```
 
 
 ## Instructions
